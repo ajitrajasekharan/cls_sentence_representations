@@ -23,3 +23,5 @@ Example below
 
 *phase2.sh*
 this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
+
+![stats](stats.png)
