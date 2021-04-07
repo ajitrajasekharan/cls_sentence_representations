@@ -25,3 +25,11 @@ Example below
 this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
 
 ![stats](stats.png)
+
+# Note. 
+This may require a code patch to transformer file modeling_bery.py in order to work
+![patch](patch.png)
+
+
+# License
+MIT License
