@@ -27,7 +27,7 @@ this can be used to either examine the sentence vectors or create clusters. The 
 ![stats](stats.png)
 
 # Note. 
-This may require a code patch to transformer file modeling_bery.py in order to work
+This may require a code patch to transformer file modeling_bert.py in order to work
 ![patch](patch.png)
 
 
