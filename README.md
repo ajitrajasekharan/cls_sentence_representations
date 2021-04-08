@@ -1,6 +1,10 @@
-# cls_sentence_representations
+
+
+# Sentence representation using [CLS] vectors and vector clustering
 
 Sentence representation using the [CLS] vector of a pre-trained model without fine-tuning. 
+
+This repository also contains code for clustering vectors. Input to clustering is two files - vector file (text file) and corresponding descriptor file naming the vectors. Additional paramters are zscore and max tail pick to control how much to pick from distribution tails
 
 # Installation
 
@@ -19,9 +23,40 @@ This will output the neighbors for each sentence in test.txt
 Example below
 
 
-![DES](DES.png)
+
+<img src="DES.png" width="600">
+
+
+* Output files for phase1
+  * **sent_vectors.txt** [CLS] vectors for each input sentence
+  * **sent_indices.txt** index of each input sentence. These two files are used for phase2 below
+  * **user specified output file** contains the neighborhood of each input sentence *(example shown  above)*
+
+
+________________________________________________________________________________________________
 
 *phase2.sh*
-this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
+this can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
 
-![stats](stats.png)
+* Output files for option 0
+  * **cum_dist.txt** Cumulative histogram of distribution
+  * **zero_vec_counts.txt** orthogonal vector count
+  * **tail_counts.txt** tail count of vectors
+
+
+
+* Output files for option 1
+  * **sent_cluster_pivots.txt** Sentence clusters
+  * **pivots.json** Pivots of clusters
+  * **inv_pivots.json** Inverted pivots
+  * **cluster_stats.json**  cluster stats
+
+<img src="stats.png" width="300">
+
+# Note. 
+Phase1 CLS vector generation requires a code patch to transformer file modeling_bert.py in order to work. This is to harvest [CLS] from head where this is a transform *(the bias value is not used)*.
+![patch](patch.png)
+
+
+# License
+MIT License
