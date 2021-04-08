@@ -24,9 +24,10 @@ Example below
 ![DES](DES.png)
 
 Output files
-*1) cum_dist.txt:Cumulative histogram of distribution*
-*2) zero_vec_counts.txt: orthogonal vector count*
-*3) tail_counts.txt: tail count of vectors*
+
+*1) cum_dist.txt:Cumulative histogram of distribution
+2) zero_vec_counts.txt: orthogonal vector count
+3) tail_counts.txt: tail count of vectors*
 
 *phase2.sh*
 this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
