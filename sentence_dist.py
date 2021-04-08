@@ -9,11 +9,21 @@ import math
 from transformers import *
 import sys
 import random
+import argparse
 
 
 SINGLETONS_TAG  = "_singletons_ "
-ZSCORE = 2
-MAX_PICK_PERCENT = .05
+DEFAULT_ZSCORE = 2 # Two standard deviations away should skip over 95% of mass
+DEFAULT_MAX_PICK_PERCENT = .05 #this is an upper bound to include at most 5 % from tail. This is to cover the case the input is not normally distributed and the tail has large mass
+
+
+OUTPUT_SENT_CLUSTER_PIVOTS = "sent_cluster_pivots.txt"
+OUTPUT_PIVOTS = "pivots.json"
+OUTPUT_INVERTED_PIVOTS = "inv_pivots.json"
+OUTPUT_CLUSTER_STATS = "cluster_stats.json"
+OUTPUT_CUM_DIST = "cum_dist.txt"
+OUTPUT_ZERO_VEC_COUNTS = "zero_vec_counts.txt"
+OUTPUT_TAIL_COUNTS = "tail_counts.txt"
 
 try:
     from subprocess import DEVNULL  # Python 3.
@@ -42,7 +52,7 @@ def read_terms(terms_file):
 
 
 class SentEmbeds:
-    def __init__(self, terms_file,embeds_file):
+    def __init__(self, terms_file,embeds_file,zscore,max_pick):
         cache_embeds = True
         normalize = True
         self.terms_dict = read_terms(terms_file)
@@ -53,6 +63,8 @@ class SentEmbeds:
         self.dist_threshold_cache = {}
         self.dist_zero_cache = {}
         self.normalize = normalize
+        self.zscore = zscore
+        self.max_pick = max_pick
 
 
 
@@ -64,8 +76,8 @@ class SentEmbeds:
         singletons_arr = []
         empty_arr = []
         total = len(self.terms_dict)
-        dfp = open("sent_cluster_pivots.txt","w")
-        max_pick_count = len(self.terms_dict)*MAX_PICK_PERCENT
+        dfp = open(OUTPUT_SENT_CLUSTER_PIVOTS,"w")
+        max_pick_count = len(self.terms_dict)*self.max_pick
         for key in self.terms_dict:
             count += 1
             #print(":",key)
@@ -74,7 +86,9 @@ class SentEmbeds:
             print("Processing ",count," of ",total)
             picked_dict[key] = 1
             temp_sorted_d,dummy = self.get_distribution_for_term(key)
-            z_threshold = self.find_zscore(temp_sorted_d,ZSCORE) # this is not a normal distribution - yet using asssuming it is for a reasonable thresholding
+            z_threshold = self.find_zscore(temp_sorted_d,self.zscore) # this is not a normal distribution (it is a skewed normal distribution) - yet using asssuming it is for a reasonable thresholding
+                                                                 # the variance largely captures the right side tail which is no less than the left side tail for BERT models. This assumption could be inaccurate for other cases.
+                                                                 # We could choose z scores conservatively based on the kind of clusters we want.
             tail_len,threshold = self.get_tail_length(key,temp_sorted_d,z_threshold,max_pick_count)
             sorted_d = self.get_terms_above_threshold(key,threshold)
             arr = []
@@ -103,7 +117,7 @@ class SentEmbeds:
 
         dfp.write(SINGLETONS_TAG + str(singletons_arr) + "\n")
         pivots_dict[SINGLETONS_TAG] = {"key":SINGLETONS_TAG,"orig":SINGLETONS_TAG,"mean":0,"std_dev":0,"terms":singletons_arr}
-        with open("pivots.json","w") as fp:
+        with open(OUTPUT_PIVOTS,"w") as fp:
             fp.write(json.dumps(pivots_dict))
         dfp.close()
         inv_pivots_dict = OrderedDict()
@@ -121,9 +135,9 @@ class SentEmbeds:
             count += 1
             if (key != SINGLETONS_TAG):
                 cluster_sizes += arr_size
-        avg_cluster_size = cluster_sizes/float(count - 2) #not counting singleton 
+        avg_cluster_size = cluster_sizes/float(count - 2) #not counting singleton
         sorted_d = OrderedDict(sorted(inv_pivots_dict.items(), key=lambda kv: kv[0], reverse=False))
-        with open("inv_pivots.json","w") as fp:
+        with open(OUTPUT_INVERTED_PIVOTS,"w") as fp:
             fp.write(json.dumps(sorted_d))
         dfp.close()
         cluster_stats_dict = {}
@@ -135,9 +149,10 @@ class SentEmbeds:
                 cluster_stats_dict[arr_size] += 1
         sorted_d = OrderedDict(sorted(cluster_stats_dict.items(), key=lambda kv: kv[0], reverse=False))
         final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"total_clusters":len(pivots_dict)-1,"total_input":total}
-        with open("cluster_stats.json","w") as fp:
+        with open(OUTPUT_CLUSTER_STATS,"w") as fp:
             fp.write(json.dumps(final_dict))
         dfp.close()
+        print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS))
 
 
     def get_tail_length(self,key,sorted_d,threshold,max_pick_count):
@@ -155,7 +170,7 @@ class SentEmbeds:
                 break
         return count,cosine_value
 
-        
+
     def find_zscore(self,sorted_d,z_val):
         sum_val = 0
         count = 0
@@ -169,13 +184,12 @@ class SentEmbeds:
         std_dev = math.sqrt(std_val/count)
         print("mean:",mean,"std",std_dev,"threshold",mean + z_val*std_dev)
         return mean + z_val*std_dev
-        
-            
 
 
 
-    def gen_dist_for_vocabs(self,sample_input):
-        is_rand = True
+
+
+    def gen_dist_for_vocabs(self,sample_percent):
         count = 1
         picked_count = 0
         skip_count = 0
@@ -184,25 +198,20 @@ class SentEmbeds:
         zero_dict = OrderedDict()
         tail_lengths = OrderedDict()
         total_tail_length = 0
-        if (sample_input):
-                sample =  100 - len(self.terms_dict)*.03
-        else:
-                sample = 100
-        max_pick_count = len(self.terms_dict)*MAX_PICK_PERCENT
+        sample =  100 - len(self.terms_dict)*sample_percent
+        max_pick_count = len(self.terms_dict)*self.max_pick
         for key in self.terms_dict:
-            if (is_rand):
-                val = random.randint(0,100)
-                if (sample_input and val < sample): # this is a biased skip to do a fast cum dist check (3% sample ~ 1000)
-                    skip_count+= 1
-                    print("Processed:",picked_count,"Skipped:",skip_count,end='\r')
-                    continue
+            val = random.randint(0,100)
+            if (val < sample): # this is a biased skip to do a fast cum dist check
+                skip_count+= 1
+                print("Processed:",picked_count,"Skipped:",skip_count,end='\r')
+                continue
             picked_count += 1
             sorted_d,dummy = self.get_distribution_for_term(key)
             print("Processing ",picked_count," of ",len(self.terms_dict))
-            threshold = self.find_zscore(sorted_d,ZSCORE) # this is not a normal distribution - yet using asssuming it is for a reasonable thresholding
+            threshold = self.find_zscore(sorted_d,self.zscore) # this is not a normal distribution - yet using asssuming it is for a reasonable thresholding
             tail_len,dummy = self.get_tail_length(key,sorted_d,threshold,max_pick_count)
             tail_lengths[key] = tail_len
-            print("tail length:",tail_len)
             total_tail_length += tail_len
             for k in sorted_d:
                 val = round(float(k),1)
@@ -216,28 +225,29 @@ class SentEmbeds:
                     cum_dict[val] = sorted_d[k]
                     cum_dict_count[val] = 1
         for k in cum_dict:
-            cum_dict[k] = round(float(cum_dict[k])/cum_dict_count[k],0)
+            cum_dict[k] = round(float(cum_dict[k])/cum_dict_count[k],0) # note each bucket is individually averaged
         final_sorted_d = OrderedDict(sorted(cum_dict.items(), key=lambda kv: kv[0], reverse=False))
         print("\nTotal picked:",picked_count)
-        with open("cum_dist.txt","w") as fp:
+        with open(OUTPUT_CUM_DIST,"w") as fp:
             fp.write("Total picked:" + str(picked_count) + "\n")
             for k in final_sorted_d:
                 print(k,final_sorted_d[k])
                 p_str = str(k) + " " +  str(final_sorted_d[k]) + "\n"
                 fp.write(p_str)
 
-        with open("zero_vec_counts.txt","w",encoding="utf-8") as fp:
+        with open(OUTPUT_ZERO_VEC_COUNTS,"w",encoding="utf-8") as fp:
             fp.write("Total picked:" + str(picked_count) + "\n")
+            fp.write("Total zero vecs count:" + str(len(zero_dict)) + "\n")
             final_sorted_d = OrderedDict(sorted(zero_dict.items(), key=lambda kv: kv[1], reverse=True))
             try:
                 for k in final_sorted_d:
                     #print(k,final_sorted_d[k])
                     p_str = str(k) + " " +  str(final_sorted_d[k]) + "\n"
                     fp.write(p_str)
-            except:
-                print("Exception 1")
+            except Exception as inst:
+                print("Exception 1",inst)
 
-        with open("tail_counts.txt","w",encoding="utf-8") as fp:
+        with open(OUTPUT_TAIL_COUNTS,"w",encoding="utf-8") as fp:
             fp.write("Total picked:" + str(picked_count) + " Average tail len: " + str(round(float(total_tail_length)/picked_count,1)) +  "\n")
             final_sorted_d = OrderedDict(sorted(tail_lengths.items(), key=lambda kv: kv[1], reverse=True))
             try:
@@ -245,8 +255,9 @@ class SentEmbeds:
                     #print(k,final_sorted_d[k])
                     p_str = str(k) + " " +  str(final_sorted_d[k]) + "\n"
                     fp.write(p_str)
-            except:
-                print("Exception 2")
+            except Exception as inst:
+                print("Exception 2:",inst)
+        print("Created output files\n1) {0}:Cumulative histogram of distribution\n2) {1}: orthogonal vector count\n3) {2}: tail count of vectors".format(OUTPUT_CUM_DIST, OUTPUT_ZERO_VEC_COUNTS, OUTPUT_TAIL_COUNTS))
 
 
 
@@ -374,27 +385,32 @@ class SentEmbeds:
 
 
 def main():
-    if (len(sys.argv) != 3):
-        print("Usage:  <sentence [index] file> <vector file> ")
-    else:
-        b_embeds =SentEmbeds(sys.argv[1],sys.argv[2])
-        display_threshold = .4
-        while (True):
-            print("Enter test type (0-gen cum dist for sentnces; 1-generate clusters ; q to quit")
-            val = input()
-            if (val == "0"):
-                try:
-                    b_embeds.gen_dist_for_vocabs(False)
-                except:
-                    print("Trapped exception")
-                sys.exit(-1)
-            elif (val == "1"):
-                b_embeds.adaptive_gen_pivot_graphs()
-                sys.exit(-1)
-            elif (val == 'q'):
-                sys.exit(-1)
-            else:
-                print("invalid option")
+    parser = argparse.ArgumentParser(description='Clusters vectors - given input vector file and a corresponding index file. Index file could be terms/words/descriptors of the input vectors.',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-vectors', action="store", dest="vectors", help='file containing vectors - one line per vector')
+    parser.add_argument('-terms', action="store", dest="terms", help='file containing terms describing the vectors')
+    parser.add_argument('-zscore', dest="zscore", action='store',type=float,default=DEFAULT_ZSCORE, help='How many standard deviations from mean to consider for clustering')
+    parser.add_argument('-max_pick', dest="max_pick", action='store',type=float,default=DEFAULT_MAX_PICK_PERCENT, help='Bound the cluster size maximum')
+    results = parser.parse_args()
+    print(results)
+    b_embeds =SentEmbeds(results.terms,results.vectors,results.zscore,results.max_pick)
+    while (True):
+        print("Enter test type (0-gen cum dist for sentences; 1-generate clusters ; q to quit")
+        val = input()
+        if (val == "0"):
+            try:
+                print("Enter sample percent. Enter 1 for 100 % or say .03 for  3% sampling")
+                sample = float(input())
+                b_embeds.gen_dist_for_vocabs(sample)
+            except Exception as inst:
+                print("Trapped exception:",inst)
+            sys.exit(-1)
+        elif (val == "1"):
+            b_embeds.adaptive_gen_pivot_graphs()
+            sys.exit(-1)
+        elif (val == 'q'):
+            sys.exit(-1)
+        else:
+            print("invalid option")
 
 
 

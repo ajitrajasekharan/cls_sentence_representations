@@ -34,14 +34,14 @@ def main(model_path,inp_file,out_file,is_mlm,sent_indices_file):
                 line_len = len(line.split())
                 for i in range(line_len):
                         if (i != line_len -1): #generate only full lines. Comment this to create partial lines
-                            continue 
+                            continue
                         trunc_line = ' '.join(line.split()[:i+1])
                         vec = se.gen_embedding(trunc_line)
                         print(count,trunc_line,len(vec))
                         vecs.append(vec)
                         lines_fp.write(str(count) + ' ' + trunc_line+'\n')
                 count += 1
-    
+
     with open(out_file,"w") as fp:
         fp.write(str(vecs))
 
@@ -49,12 +49,12 @@ def main(model_path,inp_file,out_file,is_mlm,sent_indices_file):
         for i in range(len(vecs)):
                 fp.write(str(i+1) + '\n')
 
-            
-            
+
+
 
 
 if __name__ == "__main__":
     if (len(sys.argv) != 5):
         print("Usage prog <model path>  <input sentence file> <output vector file name> <output sent indices file name>")
-    else: 
+    else:
             main(sys.argv[1],sys.argv[2],sys.argv[3],True,sys.argv[4])
