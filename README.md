@@ -29,7 +29,7 @@ Example below
 * Output files
   * cum_dist.txt:Cumulative histogram of distribution
   * zero_vec_counts.txt: orthogonal vector count
-  * tail_counts.txt: tail count of vectors*
+  * tail_counts.txt: tail count of vectors
 
 *phase2.sh*
 this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
