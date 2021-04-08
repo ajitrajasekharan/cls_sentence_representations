@@ -26,6 +26,13 @@ Example below
 
 <img src="DES.png" width="600">
 
+
+* Output files for phase1
+  * **sent_vectors.txt** [CLS] vectors for each input sentence
+  * **sent_indices.txt** index of each input sentence. These two files are used for phase2 below
+  * **user specified output file** contains the neighborhood of each input sentence *(example shown  above)*
+
+
 ________________________________________________________________________________________________
 
 *phase2.sh*
