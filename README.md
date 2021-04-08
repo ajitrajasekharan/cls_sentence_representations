@@ -1,3 +1,5 @@
+
+
 # Sentence representation using [CLS] vectors and vector clustering
 
 Sentence representation using the [CLS] vector of a pre-trained model without fine-tuning. 
@@ -21,7 +23,7 @@ This will output the neighbors for each sentence in test.txt
 Example below
 
 
-![DES](DES.png)
+![DES](DES.png | width=100)
 
 * Output files
   * cum_dist.txt:Cumulative histogram of distribution
@@ -31,7 +33,7 @@ Example below
 *phase2.sh*
 this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
 
-![stats](stats.png)
+![stats](stats.png | width=100)
 
 * Output files
   * sent_cluster_pivots.txt:Sentence clusters
