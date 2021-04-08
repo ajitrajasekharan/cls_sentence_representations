@@ -36,13 +36,15 @@ this can be used to either examine the sentence vectors *(option 0)* or create c
   * **zero_vec_counts.txt** orthogonal vector count
   * **tail_counts.txt** tail count of vectors
 
-<img src="stats.png" width="300">
+
 
 * Output files for option 1
   * **sent_cluster_pivots.txt** Sentence clusters
   * **pivots.json** Pivots of clusters
   * **inv_pivots.json** Inverted pivots
   * **cluster_stats.json**  cluster stats
+
+<img src="stats.png" width="300">
 
 # Note. 
 This may require a code patch to transformer file modeling_bert.py in order to work
