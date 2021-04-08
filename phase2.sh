@@ -1,2 +1,2 @@
-python sentence_dist.py sent_indices.txt sent_vectors.txt 
+python sentence_dist.py -terms sent_indices.txt -vectors sent_vectors.txt 
 
