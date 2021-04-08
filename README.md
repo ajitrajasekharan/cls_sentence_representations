@@ -27,9 +27,9 @@ Example below
 <img src="DES.png" width="600">
 
 * Output files
-  * cum_dist.txt:Cumulative histogram of distribution
-  * zero_vec_counts.txt: orthogonal vector count
-  * tail_counts.txt: tail count of vectors
+  * **cum_dist.txt** Cumulative histogram of distribution
+  * **zero_vec_counts.txt** orthogonal vector count
+  * **tail_counts.txt** tail count of vectors
 
 *phase2.sh*
 this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
@@ -38,10 +38,10 @@ this can be used to either examine the sentence vectors or create clusters. The 
 <img src="stats.png" width="300">
 
 * Output files
-  * sent_cluster_pivots.txt:Sentence clusters
-  * pivots.json: Pivots of clusters
-  * inv_pivots.json: Inverted pivots
-  * cluster_stats.json cluster stats
+  * **sent_cluster_pivots.txt** Sentence clusters
+  * **pivots.json** Pivots of clusters
+  * **inv_pivots.json** Inverted pivots
+  * **cluster_stats.json**  cluster stats
 
 # Note. 
 This may require a code patch to transformer file modeling_bert.py in order to work
