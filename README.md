@@ -54,7 +54,7 @@ this can be used to either examine the sentence vectors *(option 0)* or create c
 <img src="stats.png" width="300">
 
 # Note. 
-This may require a code patch to transformer file modeling_bert.py in order to work
+Phase1 CLS vector generation requires a code patch to transformer file modeling_bert.py in order to work. This is to harvest [CLS] from head where this is a transform *(the bias value is not used)*.
 ![patch](patch.png)
 
 
