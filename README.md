@@ -26,18 +26,19 @@ Example below
 
 <img src="DES.png" width="600">
 
-* Output files
-  * **cum_dist.txt** Cumulative histogram of distribution
-  * **zero_vec_counts.txt** orthogonal vector count
-  * **tail_counts.txt** tail count of vectors
+________________________________________________________________________________________________
 
 *phase2.sh*
 this can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
 
+* Output files for option 0
+  * **cum_dist.txt** Cumulative histogram of distribution
+  * **zero_vec_counts.txt** orthogonal vector count
+  * **tail_counts.txt** tail count of vectors
 
 <img src="stats.png" width="300">
 
-* Output files
+* Output files for option 1
   * **sent_cluster_pivots.txt** Sentence clusters
   * **pivots.json** Pivots of clusters
   * **inv_pivots.json** Inverted pivots
