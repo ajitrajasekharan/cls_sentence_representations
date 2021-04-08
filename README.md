@@ -32,7 +32,7 @@ Example below
   * **tail_counts.txt** tail count of vectors
 
 *phase2.sh*
-this can be used to either examine the sentence vectors or create clusters. The stats of the clusters are also output
+this can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
 
 
 <img src="stats.png" width="300">
