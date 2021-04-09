@@ -61,6 +61,7 @@ Phase1 CLS vector generation requires a code patch to transformer file modeling_
 # Misc experiments
 
 * *graph_test.py* Confirm the predictions of model can be recapitulated using the MLM head's transform and bias. This is just to illustrate harvesting any vector from the top layer without including the head transform is not the same. This is particularly relevant when harvesting [CLS] vector from the topmost layer as opposed to from the head (which includes an additional transform).
+* * *extract_head_bias.py* MLM head bias carries information analogous to a tfidf score for the vocab terms. This utility extracts bias from a model. this could have been done  by examine_model.py too.
 * *mag_test.py* This examines to see if vector magnitudes carry any information. They dont seem to be unlike the bias values in the head which do carry information - a tfidf of sorts for the vocab terms
 * *att_mask.py* this examines if the the attention weights of terms in a sentence has a pattern in its dependency on other terms. This examines it for all layers.
 
