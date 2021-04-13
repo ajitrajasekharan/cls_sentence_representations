@@ -71,10 +71,11 @@ def full_test(b_embeds,output_file):
         for term in final_sorted_d:
             print(term,round(final_sorted_d[term],3))
         print()
+        break
         with open(output_file,"wb") as wfp:
                 np.save(wfp,similarity_matrix)
-        
-        
+
+
 
 
 def main():
