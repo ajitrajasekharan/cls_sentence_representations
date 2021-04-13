@@ -64,6 +64,7 @@ Phase1 CLS vector generation requires a code patch to transformer file modeling_
 *  *extract_head_bias.py* MLM head bias carries information analogous to a tfidf score for the vocab terms. This utility extracts bias from a model. This could have been done  by examine_model.py too.
 * *mag_test.py* This examines to see if vector magnitudes carry any information. They dont seem to be unlike the bias values in the head which do carry information - a tfidf of sorts for the vocab terms
 * *att_mask.py* this examines if the the attention weights of terms in a sentence has a pattern in its dependency on other terms. This examines it for all layers.
+* *single_aminoseq_compare.py* This is used to create representations for amino acid sequences.  Use phase1.sh with compare option skipped. Then use this to compare amnino acid sequences with [CLS] vector.  Example invocation *python single_aminoseq_compare.py -input ribosomal.txt -ref_input run1/ref_seqs.txt -ref_vecs run1/sent_vectors.txt -output final.txt -ngram 4*
 
 
 # License
