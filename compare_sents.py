@@ -58,6 +58,32 @@ class SeEmbeds:
         val = np.inner(vec1,vec2)
         return val
 
+def bucket(cos_dict):
+        bucket = {}
+        for key in cos_dict:
+            val = round(cos_dict[key],1)
+            if (val in bucket):
+                bucket[val] += 1
+            else:
+                bucket[val] = 1
+        sorted_d = OrderedDict(sorted(bucket.items(), key=lambda kv: kv[0], reverse=True))
+        return sorted_d
+
+def find_mean_std(bucket_d):
+    total = 0
+    val = 0
+    for key in bucket_d:
+        val += bucket_d[key]*key
+        total += bucket_d[key]
+    mean = float(val)/total
+    std_sum = 0
+    for key in bucket_d:
+        std_sum = (mean - key)*(mean - key)*bucket_d[key]
+    std_val = math.sqrt(std_sum/total)
+    return round(mean,2),round(std_val,2)
+
+
+
 def full_test(b_embeds,output_file):
     index = 0
     results = {}
@@ -68,8 +94,13 @@ def full_test(b_embeds,output_file):
             results[b_embeds.terms_dict[j]] = score
             similarity_matrix[i][j] = score
         final_sorted_d = OrderedDict(sorted(results.items(), key=lambda kv: kv[1], reverse=True))
+        bucket_dict = bucket(final_sorted_d)
+        mean,std_val = find_mean_std(bucket_dict)
+        print("Cosine distance histogram"," mean:",mean," std:", std_val, " 1-sigma:", round(mean + std_val,2), "2-sigma:", round(mean + 2*std_val,2), " 3-sigma:",round(mean + 3*std_val,2)," 4-sigma:",round(mean + 4*std_val,2), " 5-sigma:",round(mean + 5*std_val,2)," 6-sigma:",round(mean + 6*std_val,2) )
+        for k in bucket_dict:
+            print(str(k),str(bucket_dict[k]))
         for term in final_sorted_d:
-            print(term,round(final_sorted_d[term],3))
+            print(term,round(final_sorted_d[term],1))
         print()
         break
         with open(output_file,"wb") as wfp:

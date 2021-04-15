@@ -58,7 +58,7 @@ def main(results):
                         trunc_line = ' '.join(line.split()[:i+1])
                         trunc_line = se.truncate_line(trunc_line,max_seq)
                         vec = se.gen_embedding(trunc_line)
-                        print(count,trunc_line,len(vec))
+                        print(count,trunc_line,len(trunc_line.split()))
                         vecs.append(vec)
                         lines_fp.write(str(count) + ' ' + trunc_line+'\n')
                 count += 1
