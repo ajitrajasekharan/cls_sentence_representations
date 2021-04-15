@@ -3,11 +3,12 @@ input=${1?"Specify input file"}
 final_output=${2?"specify output file"}
 model_path=${3-"./model"}
 compare_sents=${4-1}
-output_sent_vector_file=${5-"sent_vectors.txt"}
-output_sent_indices_file=${6-"sent_indices.txt"}
+max_seq=${5-15}
+output_sent_vector_file=${6-"sent_vectors.txt"}
+output_sent_indices_file=${7-"sent_indices.txt"}
 echo "Using model: $model_path"
 set -v
-python cls_embed_gen.py -model $model_path -input $input -output $output_sent_vector_file -output_index $output_sent_indices_file
+python cls_embed_gen.py -model $model_path -input $input -output $output_sent_vector_file -output_index $output_sent_indices_file -max_seq $max_seq
 
 if [ $compare_sents -eq 1 ]
 then
