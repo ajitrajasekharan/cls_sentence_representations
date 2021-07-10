@@ -139,9 +139,9 @@ def full_test(b_embeds,results):
 def main():
     parser = argparse.ArgumentParser(description='Cluster sentences  ',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-model', action="store", dest="model", default=DEFAULT_MODEL_PATH,help='BERT pretrained models, or custom model path')
-    parser.add_argument('-input', action="store", dest="input",default=DEFAULT_INPUT, help='Input file with sentences,assumes no format. But assumption is ***this list matches with input embeddings***')
-    parser.add_argument('-normalize', dest="normalize", action='store_true',help='Normalize vectors before dot product. NOT DONE FOR CLS since magnitude carries information')
-    parser.add_argument('-no-normalize', dest="normalize", action='store_false',help='Normalize vectors before dot product. NOT DONE FOR CLS since magnitude carries information')
+    parser.add_argument('-input', action="store", dest="input",default=DEFAULT_INPUT, help='Input file with sentences,assumes no format. But assumptio nis ***this list matches with input embeddings***')
+    parser.add_argument('-normalize', dest="normalize", action='store_true',help='Normalize vectors before dot product. NOT DONE FOR CLS mask prediction since magnitude carries information. For sentences, CLS normalizing gives better results')
+    parser.add_argument('-no-normalize', dest="normalize", action='store_false',help='Normalize vectors before dot product. NOT DONE FOR CLS  mask prediction since magnitude carries information. For sentences, CLS normalizing gives better results')
     parser.add_argument('-vecs', action="store", dest="vecs",default=DEFAULT_INPUT_VECTORS, help='Input file with embeddings. This list should match sentences file list')
     parser.set_defaults(normalize=True)
     results = parser.parse_args()
