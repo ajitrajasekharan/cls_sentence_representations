@@ -3,11 +3,13 @@ from transformers import BertTokenizer, BertModel, BertForMaskedLM
 import torch
 import pdb
 import argparse
+import numpy as np
 
 
 #2 for CLS and SEP
 DEFAULT_MAX_SEQUENCE_LENGTH=510
 DEFAULT_MODEL_PATH = "./"
+DEFAULT_INDEX_FILE="sent_indices.txt"
 
 
 class CL_SE:
@@ -60,11 +62,11 @@ def main(results):
                         vec = se.gen_embedding(trunc_line)
                         print(count,trunc_line,len(trunc_line.split()))
                         vecs.append(vec)
-                        lines_fp.write(str(count) + ' ' + trunc_line+'\n')
+                        lines_fp.write(str(count) + '\t' + trunc_line+ '\t' + line +'\n')
                 count += 1
 
-    with open(out_file,"w") as fp:
-        fp.write(str(vecs))
+    with open(out_file,"wb") as fp:
+        np.save(fp,np.array(vecs))
 
     with open(sent_indices_file,"w") as fp:
         for i in range(len(vecs)):
@@ -79,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument('-model', action="store", dest="model", default=DEFAULT_MODEL_PATH,help='BERT pretrained models, or custom model path')
     parser.add_argument('-input', action="store", dest="input", help='Input file with sentences')
     parser.add_argument('-output', action="store", dest="output", help='Output file with embeddings')
-    parser.add_argument('-output_index', action="store", dest="output_index", help='Output sentence indices file')
+    parser.add_argument('-output_index', action="store", dest="output_index",default=DEFAULT_INDEX_FILE, help='Output sentence indices file')
     parser.add_argument('-max_seq', action="store", dest="max_seq",type=int, default=DEFAULT_MAX_SEQUENCE_LENGTH,help=' Max sequence length ')
     parser.add_argument('-tolower', dest="tolower", action='store_true',help='Convert tokens to lowercase. Set to True only for uncased models')
     parser.add_argument('-no-tolower', dest="tolower", action='store_false',help='Convert tokens to lowercase. Set to True only for uncased models')

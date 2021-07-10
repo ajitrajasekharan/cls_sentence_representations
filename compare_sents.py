@@ -6,11 +6,17 @@ import subprocess
 import numpy as  np
 import json
 import math
-from transformers import *
+from transformers import BertTokenizer
 import sys
 import numpy as np
 import pdb
+import argparse
+import time
 
+
+DEFAULT_MODEL_PATH = "model"
+DEFAULT_INPUT_VECTORS = "sent_vectors.npy"
+DEFAULT_INPUT="sentence.txt"
 
 
 
@@ -21,11 +27,9 @@ except ImportError:
 
 
 
+
 def read_embeddings(embeds_file):
-    with open(embeds_file) as fp:
-        embeds_dict = json.loads(fp.read())
-    print("Number of embeddings:",len(embeds_dict))
-    return embeds_dict
+    return np.load(embeds_file)
 
 
 def read_terms(terms_file):
@@ -45,23 +49,20 @@ class SeEmbeds:
         self.tokenizer = BertTokenizer.from_pretrained(model_path,do_lower_case=False)
         self.terms_dict = read_terms(terms_file)
         self.embeddings = read_embeddings(embeds_file)
+        assert(len(self.terms_dict) == len(self.embeddings))
         self.cache = True
         self.embeds_cache = {}
         self.cosine_cache = {}
         self.dist_threshold_cache = {}
 
-    def calc_inner_prod(self,vec1,vec2):
-        n1 = np.linalg.norm(vec1)
-        n2 = np.linalg.norm(vec2)
-        vec1 /= n1
-        vec2 /= n2
-        val = np.inner(vec1,vec2)
-        return val
 
-def bucket(cos_dict):
+def bucket(cos_dict,log_scale,round_val):
         bucket = {}
         for key in cos_dict:
-            val = round(cos_dict[key],1)
+            if (log_scale):
+                val = round(np.log10(cos_dict[key]["score"]),round_val)
+            else:
+                val = round(cos_dict[key]["score"],round_val)
             if (val in bucket):
                 bucket[val] += 1
             else:
@@ -82,46 +83,73 @@ def find_mean_std(bucket_d):
     std_val = math.sqrt(std_sum/total)
     return round(mean,2),round(std_val,2)
 
+def cache_matrix(b_embeds,matrix_file,normalize):
+    print("Computing similarity matrix (takes approx 5 minutes for ~100,000x100,000 matrix ...")
+    start = time.time()
+    vec_a = b_embeds.embeddings.T #shape (1024,)
+    if (normalize):
+        print("**Vectors being normalized. Do not do this for BERT vectors. Magnitudes carry information***")
+        vec_a = vec_a/np.linalg.norm(vec_a,axis=0) #Note BERT vector magnitudes capture information. So dont normalize them
+    #vec_b = vec_a #(1024,)
+    vec_a = vec_a.T #(,1024)
+    #similarity_matrix = np.dot(vec_a,vec_b) #(,1024) . (1024,)
+    similarity_matrix = np.inner(vec_a,vec_a) #(,1024) . (1024,)
+    end = time.time()
+    time_val = (end-start)*1000
+    print("Similarity matrix computation complete.Elapsed:",time_val/(1000*60)," minutes")
+    with open(matrix_file,"wb") as wfp:
+        np.save(wfp,similarity_matrix)
+    return similarity_matrix
 
 
-def full_test(b_embeds,output_file):
+def full_test(b_embeds,results):
+    matrix_file = results.input.rstrip("txt") + "npy"
+    normalize = results.normalize
     index = 0
-    results = {}
-    similarity_matrix = np.zeros(len(b_embeds.embeddings)*len(b_embeds.embeddings)).reshape(len(b_embeds.embeddings),len(b_embeds.embeddings))
-    for i in range(len(b_embeds.embeddings)):
-        for j in range(len(b_embeds.embeddings)):
-            score = b_embeds.calc_inner_prod(b_embeds.embeddings[i],b_embeds.embeddings[j])
-            results[b_embeds.terms_dict[j]] = score
-            similarity_matrix[i][j] = score
-        final_sorted_d = OrderedDict(sorted(results.items(), key=lambda kv: kv[1], reverse=True))
-        bucket_dict = bucket(final_sorted_d)
+    try:
+
+        print("Attempting to load similarity matrix...:",matrix_file)
+        similarity_matrix = np.load(matrix_file)
+        print("Similarity matrix loaded:",similarity_matrix.shape)
+    except:
+        print("Cached matrix:",matrix_file," not found. Constructing matrix from sentences")
+        similarity_matrix = cache_matrix(b_embeds,matrix_file,normalize)
+    assert(len(similarity_matrix[0]) == len(b_embeds.terms_dict))
+
+    for i in range(len(similarity_matrix[0])):
+        results = {}
+        for j in range(len(similarity_matrix[0])):
+            score = similarity_matrix[i][j]
+            results[j] = {"score":score,"sent":b_embeds.terms_dict[j]}
+        final_sorted_d = OrderedDict(sorted(results.items(), key=lambda kv: kv[1]["score"], reverse=True))
+        bucket_dict = bucket(final_sorted_d,False if normalize else True,1 if normalize else 2)
         mean,std_val = find_mean_std(bucket_dict)
-        print("Cosine distance histogram"," mean:",mean," std:", std_val, " 1-sigma:", round(mean + std_val,2), "2-sigma:", round(mean + 2*std_val,2), " 3-sigma:",round(mean + 3*std_val,2)," 4-sigma:",round(mean + 4*std_val,2), " 5-sigma:",round(mean + 5*std_val,2)," 6-sigma:",round(mean + 6*std_val,2) )
+        print("Cosine distance histogram"," mean:",mean," std:", std_val, " 1-sigma:", round(mean + std_val,2), "2-sigma:", round(mean + 2*std_val,2), " 3-sigma:",round(mean + 3*std_val,2)," 4-sigma:",round(mean + 4*std_val,2), " 5-sigma:",round(mean + 5*std_val,2)," 6-sigma:",round(mean + 6*std_val,2),"**Log scale**" if normalize == False else "**Linear scale**" )
         for k in bucket_dict:
             print(str(k),str(bucket_dict[k]))
+        print("***Pivot sentence:",b_embeds.terms_dict[i])
         for term in final_sorted_d:
-            print(term,round(final_sorted_d[term],1))
+            value = np.log10(final_sorted_d[term]["score"]) if normalize == False else final_sorted_d[term]["score"]
+            print(term,final_sorted_d[term]["sent"],round(value,1 if normalize else 2))
         print()
-        break
-        with open(output_file,"wb") as wfp:
-                np.save(wfp,similarity_matrix)
-
+        #break
 
 
 
 def main():
-    if (len(sys.argv) != 4):
-        print("Usage: <Bert model path - to load tokenizer>  <sentences file> <vector file>")
-    else:
-        b_embeds =SeEmbeds(sys.argv[1],sys.argv[2],sys.argv[3])
-        full_test(b_embeds,sys.argv[2].rstrip("txt") + "npy")
-        #while (True):
-        #    print("Enter sentence index")
-        #    sent = input()
-        #    neigh_test(b_embeds,sent)
-
+    parser = argparse.ArgumentParser(description='Cluster sentences  ',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-model', action="store", dest="model", default=DEFAULT_MODEL_PATH,help='BERT pretrained models, or custom model path')
+    parser.add_argument('-input', action="store", dest="input",default=DEFAULT_INPUT, help='Input file with sentences,assumes no format. But assumption is ***this list matches with input embeddings***')
+    parser.add_argument('-normalize', dest="normalize", action='store_true',help='Normalize vectors before dot product. NOT DONE FOR CLS since magnitude carries information')
+    parser.add_argument('-no-normalize', dest="normalize", action='store_false',help='Normalize vectors before dot product. NOT DONE FOR CLS since magnitude carries information')
+    parser.add_argument('-vecs', action="store", dest="vecs",default=DEFAULT_INPUT_VECTORS, help='Input file with embeddings. This list should match sentences file list')
+    parser.set_defaults(normalize=True)
+    results = parser.parse_args()
+    b_embeds =SeEmbeds(results.model,results.input,results.vecs)
+    full_test(b_embeds,results)
 
 
 
 if __name__ == '__main__':
     main()
+
