@@ -45,11 +45,11 @@ this can be used to either examine the sentence vectors *(option 0)* or create c
 
 
 * Output files for option 1
-  * **sent_cluster_pivots.txt** Sentence clusters
+  * **sent_cluster_pivots.txt** Sentence clusters (just indices of sentences)
   * **pivots.json** Pivots of clusters
   * **inv_pivots.json** Inverted pivots
   * **cluster_stats.json**  cluster stats
-  * **desc_clusters.txt** descriptive clusters
+  * **desc_clusters.txt** descriptive clusters (shows sentences for each cluster element)
 
 <img src="stats.png" width="300">
 
