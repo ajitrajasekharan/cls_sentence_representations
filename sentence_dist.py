@@ -185,7 +185,7 @@ class SentEmbeds:
         dfp.close()
         descfp.close()
 
-        print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats {4} descriptive clusters".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS,DESC_CLUSTERS))
+        print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats\n5) {4} descriptive clusters".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS,DESC_CLUSTERS))
 
 
     def get_tail_length(self,key,sorted_d,threshold,max_pick_count):
