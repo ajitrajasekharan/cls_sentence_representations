@@ -19,7 +19,7 @@ pip install gdown
 
 *phase1.sh test.txt output.txt*
 
-This will output the neighbors for each sentence in test.txt *(this is purely a prototype implementation - will not scale for large number of sentences)* 
+This will output the neighbors for each sentence in test.txt  
 Example below
 
 
