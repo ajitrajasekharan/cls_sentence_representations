@@ -298,3 +298,45 @@ A man is talking on a cell phone.
 A guy is talking into a microphone.
 A man is cleaning a cd.
 Someone is pouring chicken broth into a pot.
+I like my phone
+My phone is not good
+Your cellphone looks great
+Will it snow tomorrow?
+Recently a lot of hurricanes have hit the US
+Global warming is real
+An apple a day keeps the doctors away
+Eating strawberries is healthy
+Is paleo better than keto?
+How old are you?
+What is your age?
+When were born?	
+A man is eating food
+A man is eating a piece of bread
+A man is eating pasta
+The girl is carrying a baby
+The baby is carried by the woman
+A lady carried an infant in her arms
+A man is riding a horse
+Two men pushed carts through the woods
+A man is riding a white horse on an enclosed ground
+A woman is playing violin
+A monkey is playing drums
+Someone in a gorilla costume is playing a set of drums
+A cheetah is running behind its prey
+A cheetah chases prey on across a field
+A tiger ran after the deer
+John did not commit the crime
+John Doe did not commit the crime
+The crime that John commited was hideously ghastly and beyond description by words
+SpaceX launched astronauts to the moon
+The invention of reusable rockets was a key step in commercial space travel
+Elon Musk is the founder of SpaceX
+BERT is an attention based model that has replaced RNNs in many tasks
+Transformer based models have become popular in Natural language processing
+Word2vec was one of the early unsupervised models to learn distributed representations for words
+He went to prison cell with a cell phone to draw blood cell samples from patients
+He went to prison cell with a cellphone to draw blood cell samples from felons
+He went to prison cell with an Android to  test inmates
+A black and white dog with a large branch is standing in the field
+A black and white dog with a large branch is running in the field
+A grey dog is carrying a huge stick on the green grass

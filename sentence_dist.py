@@ -6,7 +6,7 @@ import subprocess
 import numpy as  np
 import json
 import math
-from transformers import *
+from transformers import BertTokenizer
 import sys
 import random
 import argparse
@@ -17,6 +17,7 @@ DEFAULT_ZSCORE = 2 # Two standard deviations away should skip over 95% of mass
 DEFAULT_MAX_PICK_PERCENT = .05 #this is an upper bound to include at most 5 % from tail. This is to cover the case the input is not normally distributed and the tail has large mass
 
 
+
 OUTPUT_SENT_CLUSTER_PIVOTS = "sent_cluster_pivots.txt"
 OUTPUT_PIVOTS = "pivots.json"
 OUTPUT_INVERTED_PIVOTS = "inv_pivots.json"
@@ -24,6 +25,7 @@ OUTPUT_CLUSTER_STATS = "cluster_stats.json"
 OUTPUT_CUM_DIST = "cum_dist.txt"
 OUTPUT_ZERO_VEC_COUNTS = "zero_vec_counts.txt"
 OUTPUT_TAIL_COUNTS = "tail_counts.txt"
+DESC_CLUSTERS = "desc_clusters.txt"
 
 try:
     from subprocess import DEVNULL  # Python 3.
@@ -32,31 +34,44 @@ except ImportError:
 
 
 
+#def read_embeddings(embeds_file):
+#    with open(embeds_file) as fp:
+#        embeds_dict = json.loads(fp.read())
+#    return embeds_dict
+
 def read_embeddings(embeds_file):
-    with open(embeds_file) as fp:
-        embeds_dict = json.loads(fp.read())
-    return embeds_dict
+    return np.load(embeds_file)
 
 
-def read_terms(terms_file):
+def read_desc_terms(terms_file):
     terms_dict = OrderedDict()
     with open(terms_file,encoding="utf-8") as fin:
         count = 1
         for term in fin:
             term = term.strip("\n")
             if (len(term) >= 1):
-                terms_dict[term] = count
+                terms_dict[count] = term
                 count += 1
     print("count of tokens in ",terms_file,":", len(terms_dict))
     return terms_dict
+
+def create_terms(total_len):
+    terms_dict = OrderedDict()
+    for i in range(total_len):
+        terms_dict[str(i+1)] = i+1 #this is an str for just not braeking previous code that assumes it is str
+    print("count of tokens :", len(terms_dict))
+    return terms_dict
+
 
 
 class SentEmbeds:
     def __init__(self, terms_file,embeds_file,zscore,max_pick):
         cache_embeds = True
         normalize = True
-        self.terms_dict = read_terms(terms_file)
         self.embeddings = read_embeddings(embeds_file)
+        self.terms_dict = create_terms(len(self.embeddings))
+        self.desc_dict = read_desc_terms(terms_file)
+        assert(len(self.desc_dict) == len(self.terms_dict))
         self.cache = cache_embeds
         self.embeds_cache = {}
         self.cosine_cache = {}
@@ -66,17 +81,25 @@ class SentEmbeds:
         self.zscore = zscore
         self.max_pick = max_pick
 
+    def output_desc(self,fp, new_key,key,max_mean,std_dev,arr):
+        fp.write("\nPivot: " + self.desc_dict[int(key)] +"\n")
+        fp.write(new_key+" "+key+" "+max_mean+" "+ std_dev +"\n")
+        for i in range(len(arr)):
+            fp.write(self.desc_dict[int(arr[i])] + "\n")
+        fp.write("\n")
 
 
     def adaptive_gen_pivot_graphs(self):
-        count = 1
+        count = 0
         total = len(self.terms_dict)
         picked_dict = OrderedDict()
         pivots_dict = OrderedDict()
         singletons_arr = []
+        fall_through_zscore = .5
         empty_arr = []
         total = len(self.terms_dict)
         dfp = open(OUTPUT_SENT_CLUSTER_PIVOTS,"w")
+        descfp = open(DESC_CLUSTERS,"w")
         max_pick_count = len(self.terms_dict)*self.max_pick
         for key in self.terms_dict:
             count += 1
@@ -89,6 +112,10 @@ class SentEmbeds:
             z_threshold = self.find_zscore(temp_sorted_d,self.zscore) # this is not a normal distribution (it is a skewed normal distribution) - yet using asssuming it is for a reasonable thresholding
                                                                  # the variance largely captures the right side tail which is no less than the left side tail for BERT models. This assumption could be inaccurate for other cases.
                                                                  # We could choose z scores conservatively based on the kind of clusters we want.
+            if (z_threshold > 1):
+                z_threshold = fall_through_zscore
+                print("Zscore > 1. Resetting it to:",round(fall_through_zscore,2))
+                 
             tail_len,threshold = self.get_tail_length(key,temp_sorted_d,z_threshold,max_pick_count)
             sorted_d = self.get_terms_above_threshold(key,threshold)
             arr = []
@@ -105,14 +132,17 @@ class SentEmbeds:
                 pivots_dict[new_key] = {"key":new_key,"orig":key,"mean":max_mean,"std_dev":std_dev,"terms":arr}
                 print(new_key,max_mean,std_dev,arr)
                 dfp.write(new_key + " " + new_key + " " + new_key+" "+key+" "+str(max_mean)+" "+ str(std_dev) + " " +str(arr)+"\n")
+                self.output_desc(descfp, new_key,key,str(max_mean),str(std_dev),arr)
             else:
                 if (len(arr) == 1):
                     print("***Singleton arr for term:",key)
                     singletons_arr.append(key)
                 else:
                     print("***Empty arr for term:",key)
-                    pdb.set_trace()
-                    assert(0)
+                    #pdb.set_trace()
+                    #assert(0)
+                    if (fall_through_zscore > .2):
+                        fall_through_zscore -= .1
                     empty_arr.append(key)
 
         dfp.write(SINGLETONS_TAG + str(singletons_arr) + "\n")
@@ -151,15 +181,18 @@ class SentEmbeds:
         final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"total_clusters":len(pivots_dict)-1,"total_input":total}
         with open(OUTPUT_CLUSTER_STATS,"w") as fp:
             fp.write(json.dumps(final_dict))
+
         dfp.close()
-        print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS))
+        descfp.close()
+
+        print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats {4} descriptive clusters".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS,DESC_CLUSTERS))
 
 
     def get_tail_length(self,key,sorted_d,threshold,max_pick_count):
         rev_sorted_d = OrderedDict(sorted(sorted_d.items(), key=lambda kv: kv[0], reverse=True))
         count = 0
         pick_count = 0
-        cosine_value = 0
+        cosine_value = 1.1
         for k in rev_sorted_d:
             if (k >= threshold):
                if (count + sorted_d[k] > max_pick_count):
@@ -182,7 +215,7 @@ class SentEmbeds:
         for k in sorted_d:
             std_val += (mean - k)*(mean - k)*sorted_d[k]
         std_dev = math.sqrt(std_val/count)
-        print("mean:",mean,"std",std_dev,"threshold",mean + z_val*std_dev)
+        print("mean:",round(mean,2),"std",round(std_dev,2),"threshold",round(mean + z_val*std_dev,2))
         return mean + z_val*std_dev
 
 
@@ -268,6 +301,7 @@ class SentEmbeds:
         return vec
 
 
+    #Vectors are normalized by default
     def get_vector(self,indexed_tokens):
         vec = None
         if (len(indexed_tokens) == 0):
@@ -283,7 +317,7 @@ class SentEmbeds:
             sq_sum += vec[i]*vec[i]
         sq_sum = math.sqrt(sq_sum)
         for i in range(len(vec)):
-            vec[i] = vec[i]/sq_sum
+            vec[i] = float(vec[i])/sq_sum
         #sq_sum = 0
         #for i in range(len(vec)):
         #    sq_sum += vec[i]*vec[i]
@@ -387,7 +421,7 @@ class SentEmbeds:
 def main():
     parser = argparse.ArgumentParser(description='Clusters vectors - given input vector file and a corresponding index file. Index file could be terms/words/descriptors of the input vectors.',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-vectors', action="store", dest="vectors", help='file containing vectors - one line per vector')
-    parser.add_argument('-terms', action="store", dest="terms", help='file containing terms describing the vectors')
+    parser.add_argument('-terms', action="store", dest="terms", help='file with sentences/terms desciribng  the  vectors')
     parser.add_argument('-zscore', dest="zscore", action='store',type=float,default=DEFAULT_ZSCORE, help='How many standard deviations from mean to consider for clustering')
     parser.add_argument('-max_pick', dest="max_pick", action='store',type=float,default=DEFAULT_MAX_PICK_PERCENT, help='Bound the cluster size maximum')
     results = parser.parse_args()
