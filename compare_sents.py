@@ -88,7 +88,6 @@ def cache_matrix(b_embeds,matrix_file,normalize):
     start = time.time()
     vec_a = b_embeds.embeddings.T #shape (1024,)
     if (normalize):
-        print("**Vectors being normalized. Do not do this for BERT vectors. Magnitudes carry information***")
         vec_a = vec_a/np.linalg.norm(vec_a,axis=0) #Note BERT vector magnitudes capture information. So dont normalize them
     #vec_b = vec_a #(1024,)
     vec_a = vec_a.T #(,1024)
