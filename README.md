@@ -28,8 +28,7 @@ Example below
 
 
 * Output files for phase1
-  * **sent_vectors.txt** [CLS] vectors for each input sentence
-  * **sent_indices.txt** index of each input sentence. These two files are used for phase2 below
+  * **sent_vectors.npy** [CLS] vectors for each input sentence
   * **user specified output file** contains the neighborhood of each input sentence *(example shown  above)*
 
 
@@ -50,6 +49,7 @@ this can be used to either examine the sentence vectors *(option 0)* or create c
   * **pivots.json** Pivots of clusters
   * **inv_pivots.json** Inverted pivots
   * **cluster_stats.json**  cluster stats
+  * **desc_clusters.txt** descriptive clusters
 
 <img src="stats.png" width="300">
 
