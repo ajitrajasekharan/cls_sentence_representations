@@ -13,7 +13,8 @@ import argparse
 
 
 SINGLETONS_TAG  = "_singletons_ "
-DEFAULT_ZSCORE = 2 # Two standard deviations away should skip over 95% of mass
+EMPTY_TAG  = "_empty_ "
+DEFAULT_ZSCORE = 2 # Two standard deviations away should skip over 95% of mass. For normal disttribution. 1 std - 68% 2 std - 95%; 3 std - 99.7% - 4 std - 99.9937%; 5 std - 99.99937%; 6 std - 99.9999998%
 DEFAULT_MAX_PICK_PERCENT = .05 #this is an upper bound to include at most 5 % from tail. This is to cover the case the input is not normally distributed and the tail has large mass
 
 
@@ -26,6 +27,7 @@ OUTPUT_CUM_DIST = "cum_dist.txt"
 OUTPUT_ZERO_VEC_COUNTS = "zero_vec_counts.txt"
 OUTPUT_TAIL_COUNTS = "tail_counts.txt"
 DESC_CLUSTERS = "desc_clusters.txt"
+SUBSERVIENT_CLUSTERS = "subservient_clusters.txt"
 
 try:
     from subprocess import DEVNULL  # Python 3.
@@ -84,6 +86,11 @@ class SentEmbeds:
     def output_desc(self,fp, new_key,key,max_mean,std_dev,arr):
         fp.write("\nPivot: " + self.desc_dict[int(key)] +"\n")
         fp.write(new_key+" "+key+" "+max_mean+" "+ std_dev +"\n")
+        element = new_key.split("++")[0]
+        if (element != key):
+            fp.write("new pivot sentence: " + self.desc_dict[int(element)]+"\n")
+        fp.write("pivot sentence: " + self.desc_dict[int(key)]+"\n")
+        fp.write("cluster::" + "\n")
         for i in range(len(arr)):
             fp.write(self.desc_dict[int(arr[i])] + "\n")
         fp.write("\n")
@@ -108,13 +115,15 @@ class SentEmbeds:
                 continue
             print("Processing ",count," of ",total)
             picked_dict[key] = 1
+            #pdb.set_trace()
             temp_sorted_d,dummy = self.get_distribution_for_term(key)
             z_threshold = self.find_zscore(temp_sorted_d,self.zscore) # this is not a normal distribution (it is a skewed normal distribution) - yet using asssuming it is for a reasonable thresholding
-                                                                 # the variance largely captures the right side tail which is no less than the left side tail for BERT models. This assumption could be inaccurate for other cases.
+                                                                 # the variance largely captures the right side tail which is no less than the left side tail for BERT models. 
+                                                                 # This assumption could be inaccurate for other cases.
                                                                  # We could choose z scores conservatively based on the kind of clusters we want.
-            if (z_threshold > 1):
-                z_threshold = fall_through_zscore
-                print("Zscore > 1. Resetting it to:",round(fall_through_zscore,2))
+            #if (z_threshold > 1):
+            #    z_threshold = fall_through_zscore
+            #    print("Zscore > 1. Resetting it to:",round(fall_through_zscore,2))
                  
             tail_len,threshold = self.get_tail_length(key,temp_sorted_d,z_threshold,max_pick_count)
             sorted_d = self.get_terms_above_threshold(key,threshold)
@@ -129,9 +138,20 @@ class SentEmbeds:
                 else:
                     print("****Term already a pivot node:",max_mean_term, "key  is :",key)
                     new_key  = max_mean_term + "++" + key
-                pivots_dict[new_key] = {"key":new_key,"orig":key,"mean":max_mean,"std_dev":std_dev,"terms":arr}
+                pivots_dict[new_key] = {"key":new_key,"orig":key,"mean":max_mean,"std_dev":std_dev,"size":len(arr),"terms":arr,"subservient":0}
                 print(new_key,max_mean,std_dev,arr)
-                dfp.write(new_key + " " + new_key + " " + new_key+" "+key+" "+str(max_mean)+" "+ str(std_dev) + " " +str(arr)+"\n")
+                for k in sorted_d:
+                    if (k in pivots_dict and k != max_mean_term and k != key):
+                        #pdb.set_trace()
+                        print("Marking a pivot list subservient, because it is a child of another pivot \"key\"")
+                        pivots_dict[k]["subservient"] = 1
+                        iter_dict = dict(pivots_dict) #clone for iter, since we will delete from pivots_dict while iterating
+                        for j in iter_dict:
+                            elements = j.split("++")[0]
+                            if (elements == k):
+                                print("Also marking  another cluster this pivot was a head of as subservient")
+                                pivots_dict[j]["subservient"] = 1
+                dfp.write(new_key + " " + new_key + " " + new_key+" "+key+" "+str(max_mean)+" "+ str(std_dev) + " " + str(len(arr)) +  " " +str(arr)+"\n")
                 self.output_desc(descfp, new_key,key,str(max_mean),str(std_dev),arr)
             else:
                 if (len(arr) == 1):
@@ -141,12 +161,14 @@ class SentEmbeds:
                     print("***Empty arr for term:",key)
                     #pdb.set_trace()
                     #assert(0)
-                    if (fall_through_zscore > .2):
-                        fall_through_zscore -= .1
+                    #if (fall_through_zscore > .2):
+                    #    fall_through_zscore -= .1
                     empty_arr.append(key)
 
-        dfp.write(SINGLETONS_TAG + str(singletons_arr) + "\n")
-        pivots_dict[SINGLETONS_TAG] = {"key":SINGLETONS_TAG,"orig":SINGLETONS_TAG,"mean":0,"std_dev":0,"terms":singletons_arr}
+        dfp.write(SINGLETONS_TAG + " " + str(len(singletons_arr)) + " " +   str(singletons_arr) + "\n")
+        pivots_dict[SINGLETONS_TAG] = {"key":SINGLETONS_TAG,"orig":SINGLETONS_TAG,"mean":0,"std_dev":0,"size":len(singletons_arr),"terms":singletons_arr,"subservient":0}
+        dfp.write(EMPTY_TAG + " " + str(len(empty_arr)) + " "   + str(empty_arr) + "\n")
+        pivots_dict[EMPTY_TAG] = {"key":EMPTY_TAG,"orig":EMPTY_TAG,"mean":0,"std_dev":0,"size":len(empty_arr),"terms":empty_arr,"subservient": 0}
         with open(OUTPUT_PIVOTS,"w") as fp:
             fp.write(json.dumps(pivots_dict))
         dfp.close()
@@ -163,9 +185,9 @@ class SentEmbeds:
                     print("Already present:",term)
                 inv_pivots_dict[int(term)].append({"index":count,"size":arr_size})
             count += 1
-            if (key != SINGLETONS_TAG):
+            if (key != SINGLETONS_TAG and key not in EMPTY_TAG):
                 cluster_sizes += arr_size
-        avg_cluster_size = cluster_sizes/float(count - 2) #not counting singleton
+        avg_cluster_size = cluster_sizes/float(count - 2) #not counting singleton and empty
         sorted_d = OrderedDict(sorted(inv_pivots_dict.items(), key=lambda kv: kv[0], reverse=False))
         with open(OUTPUT_INVERTED_PIVOTS,"w") as fp:
             fp.write(json.dumps(sorted_d))
@@ -178,9 +200,14 @@ class SentEmbeds:
             else:
                 cluster_stats_dict[arr_size] += 1
         sorted_d = OrderedDict(sorted(cluster_stats_dict.items(), key=lambda kv: kv[0], reverse=False))
-        final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"total_clusters":len(pivots_dict)-1,"total_input":total}
+        final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"empty_counts":len(empty_arr),"total_clusters":len(pivots_dict)-2,"total_input":total} #not counting empty and singletons  in pivots list
         with open(OUTPUT_CLUSTER_STATS,"w") as fp:
-            fp.write(json.dumps(final_dict))
+            fp.write(json.dumps(final_dict) + "\n")
+        with open(SUBSERVIENT_CLUSTERS,"w") as fp:
+            for k in pivots_dict:
+                if (pivots_dict[k]["subservient"] == 1):
+                    element = k.split("++")[0]
+                    fp.write(str(k) + " " + self.desc_dict[int(element)] + "\n")
 
         dfp.close()
         descfp.close()
@@ -195,7 +222,7 @@ class SentEmbeds:
         cosine_value = 1.1
         for k in rev_sorted_d:
             if (k >= threshold):
-               if (count + sorted_d[k] > max_pick_count):
+               if (count + sorted_d[k] >= max_pick_count): #We pick from the tail only if the new amount be added still keeps it within max_pick_count
                     break
                count += sorted_d[k]
                cosine_value = k
@@ -422,7 +449,7 @@ def main():
     parser = argparse.ArgumentParser(description='Clusters vectors - given input vector file and a corresponding index file. Index file could be terms/words/descriptors of the input vectors.',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-vectors', action="store", dest="vectors", help='file containing vectors - one line per vector')
     parser.add_argument('-terms', action="store", dest="terms", help='file with sentences/terms desciribng  the  vectors')
-    parser.add_argument('-zscore', dest="zscore", action='store',type=float,default=DEFAULT_ZSCORE, help='How many standard deviations from mean to consider for clustering')
+    parser.add_argument('-zscore', dest="zscore", action='store',type=float,default=DEFAULT_ZSCORE, help='Minimum standard deviations from mean to consider for clustering')
     parser.add_argument('-max_pick', dest="max_pick", action='store',type=float,default=DEFAULT_MAX_PICK_PERCENT, help='Bound the cluster size maximum')
     results = parser.parse_args()
     print(results)
