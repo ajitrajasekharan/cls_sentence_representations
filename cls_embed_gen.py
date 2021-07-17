@@ -26,7 +26,15 @@ class CL_SE:
             line = line.rstrip('\n')
             tokenized_text = self.tokenizer.tokenize('[CLS] ' + line + ' [SEP]')
             max_len = min(max_seq,len(tokenized_text)-1)
-            line  = ' '.join(tokenized_text[1:max_len]).replace('##','')
+            line  = ' '.join(tokenized_text[1:max_len])
+            combined_sent = ''
+            sent_arr = line.split()
+            for i in range(len(sent_arr)):
+                if (sent_arr[i][0] == '#' and len(sent_arr[i]) > 2 and sent_arr[i][1] == '#'):
+                    combined_sent = combined_sent + sent_arr[i][2:]
+                else:
+                    combined_sent = combined_sent + ' ' + sent_arr[i]
+            line = combined_sent.strip()
             return line
 
 
