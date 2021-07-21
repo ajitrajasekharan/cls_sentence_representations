@@ -1,6 +1,6 @@
 
 
-# Sentence representation using [CLS] vectors and vector clustering
+# (1) Sentence representation using [CLS] vectors and  (2) vector clustering *(independent of how the vectors were created)*
 
 Sentence representation using the [CLS] vector of a pre-trained model without fine-tuning. 
 
@@ -41,6 +41,8 @@ This script essentially invokes
 *python sentence_dist.py -terms $input -vectors sent_vectors.npy -zscore 4*
 
 this script can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
+
+The vectors could be created by any mechanism - it need not be the [CLS] vectors created by phase1. All one need to provide a text file which serves as a description of each vector and a numpy array of sentence vectors. The z-score paramters influences how many standard deviations from the mean is used as a criterion for clustering *(even the distribution is not normal, the z score serves as a reasonable threshold to pick elements of a cluster)*
 
 * Output files for option 0
   * **cum_dist.txt** Cumulative histogram of distribution
