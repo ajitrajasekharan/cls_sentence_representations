@@ -19,7 +19,7 @@ pip install gdown
 
 *phase1.sh test.txt output.txt*
 
-This will output the neighbors for each sentence in test.txt  
+This will output the neighbors for each sentence in test.txt  *(see Note below on modification to HunggingFace pytorch code for  [CLS] vector harvesting)*
 Example below
 
 
