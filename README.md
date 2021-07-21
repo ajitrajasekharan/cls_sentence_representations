@@ -35,7 +35,12 @@ Example below
 ________________________________________________________________________________________________
 
 *phase2.sh*
-this can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
+
+This script essentially invokes 
+
+*python sentence_dist.py -terms $input -vectors sent_vectors.npy -zscore 4*
+
+this script can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
 
 * Output files for option 0
   * **cum_dist.txt** Cumulative histogram of distribution
@@ -51,6 +56,13 @@ this can be used to either examine the sentence vectors *(option 0)* or create c
   * **cluster_stats.json**  cluster stats
   * **desc_clusters.txt** descriptive clusters (shows sentences for each cluster element)
 
+Examples clusters
+
+<img src="c1.png" width="300">
+
+<img src="c2.png" width="300">
+
+Cluster stats
 <img src="stats.png" width="300">
 
 # Note. 
