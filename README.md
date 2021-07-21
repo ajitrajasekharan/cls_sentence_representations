@@ -58,9 +58,9 @@ this script can be used to either examine the sentence vectors *(option 0)* or c
 
 Examples clusters
 
-<img src="c1.png" width="300">
+<img src="c1.png" width="500">
 
-<img src="c2.png" width="300">
+<img src="c2.png" width="500">
 
 Cluster stats
 <img src="stats.png" width="300">
