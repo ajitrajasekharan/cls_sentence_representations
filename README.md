@@ -40,7 +40,7 @@ This script essentially invokes
 
 *python sentence_dist.py -terms $input -vectors sent_vectors.npy -zscore 4*
 
-this scitpt can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
+this script can be used to either examine the sentence vectors *(option 0)* or create clusters *(option 1)*. The stats of the clusters are also output
 
 * Output files for option 0
   * **cum_dist.txt** Cumulative histogram of distribution
