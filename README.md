@@ -56,13 +56,15 @@ this script can be used to either examine the sentence vectors *(option 0)* or c
   * **cluster_stats.json**  cluster stats
   * **desc_clusters.txt** descriptive clusters (shows sentences for each cluster element)
 
-Examples clusters
+*Examples clusters*
 
 <img src="c1.png" width="800">
 
 <img src="c2.png" width="800">
 
-Cluster stats
+
+*Cluster stats*
+
 <img src="stats.png" width="300">
 
 # Note. 
