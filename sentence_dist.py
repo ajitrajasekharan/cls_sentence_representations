@@ -10,6 +10,7 @@ from transformers import BertTokenizer
 import sys
 import random
 import argparse
+import time
 
 
 SINGLETONS_TAG  = "_singletons_ "
@@ -28,6 +29,8 @@ OUTPUT_ZERO_VEC_COUNTS = "zero_vec_counts.txt"
 OUTPUT_TAIL_COUNTS = "tail_counts.txt"
 DESC_CLUSTERS = "desc_clusters.txt"
 SUBSERVIENT_CLUSTERS = "subservient_clusters.txt"
+EMPTY_SENTENCES = "empty_sentences.txt"
+SINGLETON_SENTENCES = "singleton_sentences.txt"
 
 try:
     from subprocess import DEVNULL  # Python 3.
@@ -36,12 +39,9 @@ except ImportError:
 
 
 
-#def read_embeddings(embeds_file):
-#    with open(embeds_file) as fp:
-#        embeds_dict = json.loads(fp.read())
-#    return embeds_dict
 
 def read_embeddings(embeds_file):
+    #return np.load(embeds_file,allow_pickle=True)
     return np.load(embeds_file)
 
 
@@ -75,13 +75,29 @@ class SentEmbeds:
         self.desc_dict = read_desc_terms(terms_file)
         assert(len(self.desc_dict) == len(self.terms_dict))
         self.cache = cache_embeds
-        self.embeds_cache = {}
-        self.cosine_cache = {}
         self.dist_threshold_cache = {}
         self.dist_zero_cache = {}
         self.normalize = normalize
         self.zscore = zscore
         self.max_pick = max_pick
+        self.similarity_matrix = self.cache_matrix(True)
+
+
+    def cache_matrix(self,normalize):
+        b_embeds = self
+        print("Computing similarity matrix (takes approx 5 minutes for ~100,000x100,000 matrix ...")
+        start = time.time()
+        vec_a = b_embeds.embeddings.T #shape (1024,)
+        if (normalize):
+            vec_a = vec_a/np.linalg.norm(vec_a,axis=0) #Note BERT vector magnitudes capture information. So dont normalize them
+            #vec_b = vec_a #(1024,)
+            vec_a = vec_a.T #(,1024)
+            #similarity_matrix = np.dot(vec_a,vec_b) #(,1024) . (1024,)
+            similarity_matrix = np.inner(vec_a,vec_a) #(,1024) . (1024,)
+        end = time.time()
+        time_val = (end-start)*1000
+        print("Similarity matrix computation complete.Elapsed:",time_val/(1000*60)," minutes")
+        return similarity_matrix
 
     def output_desc(self,fp, new_key,key,max_mean,std_dev,arr):
         fp.write("\nPivot: " + self.desc_dict[int(key)] +"\n")
@@ -107,6 +123,8 @@ class SentEmbeds:
         total = len(self.terms_dict)
         dfp = open(OUTPUT_SENT_CLUSTER_PIVOTS,"w")
         descfp = open(DESC_CLUSTERS,"w")
+        emptyfp = open(EMPTY_SENTENCES,"w")
+        singletonfp = open(SINGLETON_SENTENCES,"w")
         max_pick_count = len(self.terms_dict)*self.max_pick
         for key in self.terms_dict:
             count += 1
@@ -145,18 +163,20 @@ class SentEmbeds:
                         #pdb.set_trace()
                         print("Marking a pivot list subservient, because it is a child of another pivot \"key\"")
                         pivots_dict[k]["subservient"] = 1
-                        iter_dict = dict(pivots_dict) #clone for iter, since we will delete from pivots_dict while iterating
+                        iter_dict = dict(pivots_dict) #clone for iter, not sure why I did this! Earlier I planned to delete
                         for j in iter_dict:
                             elements = j.split("++")[0]
                             if (elements == k):
                                 print("Also marking  another cluster this pivot was a head of as subservient")
                                 pivots_dict[j]["subservient"] = 1
+                print("Non singleton cluster:",key,"new_key:",key)
                 dfp.write(new_key + " " + new_key + " " + new_key+" "+key+" "+str(max_mean)+" "+ str(std_dev) + " " + str(len(arr)) +  " " +str(arr)+"\n")
                 self.output_desc(descfp, new_key,key,str(max_mean),str(std_dev),arr)
             else:
                 if (len(arr) == 1):
                     print("***Singleton arr for term:",key)
                     singletons_arr.append(key)
+                    singletonfp.write(self.desc_dict[int(key)] +"\n")
                 else:
                     print("***Empty arr for term:",key)
                     #pdb.set_trace()
@@ -164,6 +184,7 @@ class SentEmbeds:
                     #if (fall_through_zscore > .2):
                     #    fall_through_zscore -= .1
                     empty_arr.append(key)
+                    emptyfp.write(self.desc_dict[int(key)] +"\n")
 
         dfp.write(SINGLETONS_TAG + " " + str(len(singletons_arr)) + " " +   str(singletons_arr) + "\n")
         pivots_dict[SINGLETONS_TAG] = {"key":SINGLETONS_TAG,"orig":SINGLETONS_TAG,"mean":0,"std_dev":0,"size":len(singletons_arr),"terms":singletons_arr,"subservient":0}
@@ -211,6 +232,8 @@ class SentEmbeds:
 
         dfp.close()
         descfp.close()
+        emptyfp.close()
+        singletonfp.close()
 
         print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats\n5) {4} descriptive clusters".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS,DESC_CLUSTERS))
 
@@ -258,7 +281,7 @@ class SentEmbeds:
         zero_dict = OrderedDict()
         tail_lengths = OrderedDict()
         total_tail_length = 0
-        sample =  100 - len(self.terms_dict)*sample_percent
+        sample =  100 - sample_percent
         max_pick_count = len(self.terms_dict)*self.max_pick
         for key in self.terms_dict:
             val = random.randint(0,100)
@@ -268,7 +291,7 @@ class SentEmbeds:
                 continue
             picked_count += 1
             sorted_d,dummy = self.get_distribution_for_term(key)
-            print("Processing ",picked_count," of ",len(self.terms_dict))
+            print("\nProcessing ",picked_count," of ",len(self.terms_dict))
             threshold = self.find_zscore(sorted_d,self.zscore) # this is not a normal distribution - yet using asssuming it is for a reasonable thresholding
             tail_len,dummy = self.get_tail_length(key,sorted_d,threshold,max_pick_count)
             tail_lengths[key] = tail_len
@@ -321,49 +344,11 @@ class SentEmbeds:
 
 
 
-    def get_embedding(self,text):
-        vec =  self.get_vector([int(text)-1])
-        if (self.cache):
-                self.embeds_cache[text] = vec
-        return vec
-
-
-    #Vectors are normalized by default
-    def get_vector(self,indexed_tokens):
-        vec = None
-        if (len(indexed_tokens) == 0):
-            return vec
-        #pdb.set_trace()
-        for i in range(len(indexed_tokens)):
-            term_vec = self.embeddings[indexed_tokens[i]]
-            if (vec is None):
-                vec = np.zeros(len(term_vec))
-            vec += term_vec
-        sq_sum = 0
-        for i in range(len(vec)):
-            sq_sum += vec[i]*vec[i]
-        sq_sum = math.sqrt(sq_sum)
-        for i in range(len(vec)):
-            vec[i] = float(vec[i])/sq_sum
-        #sq_sum = 0
-        #for i in range(len(vec)):
-        #    sq_sum += vec[i]*vec[i]
-        return vec
 
     def calc_inner_prod(self,text1,text2):
-        if (self.cache and text1 in self.cosine_cache and text2 in self.cosine_cache[text1]):
-            return self.cosine_cache[text1][text2]
-        vec1 = self.get_embedding(text1)
-        vec2 = self.get_embedding(text2)
-        if (vec1 is None or vec2 is None):
-            #print("Warning: at least one of the vectors is None for terms",text1,text2)
-            return 0
-        val = np.inner(vec1,vec2)
-        if (self.cache):
-            if (text1 not in self.cosine_cache):
-                self.cosine_cache[text1] = {}
-            self.cosine_cache[text1][text2] = val
-        return val
+        index1 = int(text1) - 1
+        index2 = int(text2) -1
+        return self.similarity_matrix[index1][index2]
 
     def get_distribution_for_term(self,term1):
         if (term1 in self.dist_threshold_cache):
@@ -459,7 +444,7 @@ def main():
         val = input()
         if (val == "0"):
             try:
-                print("Enter sample percent. Enter 1 for 100 % or say .03 for  3% sampling")
+                print("Enter sample percent. Enter integer value [0-100] 1 for 100 % 1 for  1% sampling. Min 0")
                 sample = float(input())
                 b_embeds.gen_dist_for_vocabs(sample)
             except Exception as inst:
