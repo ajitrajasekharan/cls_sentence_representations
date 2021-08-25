@@ -87,12 +87,12 @@ class SentEmbeds:
         b_embeds = self
         print("Computing similarity matrix (takes approx 5 minutes for ~100,000x100,000 matrix ...")
         start = time.time()
-        #vec_a = b_embeds.embeddings.T #shape (1024,)
-        vec_a = b_embeds.embeddings #shape (,1024)
+        vec_a = b_embeds.embeddings.T #shape (1024,)
+        #vec_a = b_embeds.embeddings #shape (,1024)
         if (normalize):
             vec_a = vec_a/np.linalg.norm(vec_a,axis=0) #Norm is along axis 0 - columns.
             #vec_b = vec_a #(1024,)
-            #vec_a = vec_a.T #(,1024)
+            vec_a = vec_a.T #(,1024)
             #similarity_matrix = np.dot(vec_a,vec_b) #(,1024) . (1024,)
             similarity_matrix = np.inner(vec_a,vec_a) #(,1024) . (1024,)
         end = time.time()
