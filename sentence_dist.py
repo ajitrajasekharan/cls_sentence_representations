@@ -90,7 +90,7 @@ class SentEmbeds:
         vec_a = b_embeds.embeddings.T #shape (1024,)
         #vec_a = b_embeds.embeddings #shape (,1024)
         if (normalize):
-            vec_a = vec_a/np.linalg.norm(vec_a,axis=0) #Norm is along axis 0.
+            vec_a = vec_a/np.linalg.norm(vec_a,axis=0) #Norm is along axis 0 - rows.
             #vec_b = vec_a #(1024,)
             vec_a = vec_a.T #(,1024)
             #similarity_matrix = np.dot(vec_a,vec_b) #(,1024) . (1024,)
