@@ -222,7 +222,7 @@ class SentEmbeds:
             else:
                 cluster_stats_dict[arr_size] += 1
         sorted_d = OrderedDict(sorted(cluster_stats_dict.items(), key=lambda kv: kv[0], reverse=False))
-        final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"empty_counts":len(empty_arr),"total_clusters":len(pivots_dict)-2,"total_input":total} #not counting empty and singletons  in pivots list
+        final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"empty_counts":len(empty_arr),"total_clusters":len(pivots_dict)-2,"total_input":total,"zcore":self.zscore,"max_pick":self.max_pick} #not counting empty and singletons  in pivots list
         with open(OUTPUT_CLUSTER_STATS,"w") as fp:
             fp.write(json.dumps(final_dict) + "\n")
         with open(SUBSERVIENT_CLUSTERS,"w") as fp:
