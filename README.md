@@ -2,9 +2,9 @@
 
 ## (1) Sentence representation using [CLS] vectors 
 
-## (2) Vector clustering *(independent of how the vectors were created)*
-
 Sentence representation using the [CLS] vector of a pre-trained model without fine-tuning. 
+
+## (2) Vector clustering *(independent of how the vectors were created)*
 
 This repository also contains code for clustering vectors. Input to clustering is two files - vector file (text file) and corresponding descriptor file naming the vectors. Additional paramters are zscore and max tail pick to control how much to pick from distribution tails
 
