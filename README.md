@@ -1,12 +1,12 @@
 
 
-# (1) Sentence representation using [CLS] vectors and  (2) vector clustering *(independent of how the vectors were created)*
+## (1) Sentence representation using [CLS] vectors and  (2) vector clustering *(independent of how the vectors were created)*
 
 Sentence representation using the [CLS] vector of a pre-trained model without fine-tuning. 
 
 This repository also contains code for clustering vectors. Input to clustering is two files - vector file (text file) and corresponding descriptor file naming the vectors. Additional paramters are zscore and max tail pick to control how much to pick from distribution tails
 
-# Installation
+## Installation
 
 
 Setup pytorch environment with/without GPU support using link https://github.com/ajitrajasekharan/multi_gpu_test
@@ -15,7 +15,7 @@ pip install gdown
 
 ./fetch_model.sh
 
-# Usage
+## Usage
 
 *phase1.sh test.txt output.txt*
 
@@ -69,12 +69,12 @@ The vectors could be created by any mechanism - it need not be the [CLS] vectors
 
 <img src="stats.png" width="300">
 
-# Note. 
+## Note. 
 Phase1 CLS vector generation requires a code patch to transformer file modeling_bert.py in order to work. This is to harvest [CLS] from head where this is a transform *(the bias value is not used)*.
 ![patch](patch.png)
 
 
-# Misc experiments
+## Misc experiments
 
 * *graph_test.py* Confirm the predictions of model can be recapitulated using the MLM head's transform and bias. This is just to illustrate harvesting any vector from the top layer without including the head transform is not the same. This is particularly relevant when harvesting [CLS] vector from the topmost layer as opposed to from the head (which includes an additional transform).
 *  *extract_head_bias.py* MLM head bias carries information analogous to a tfidf score for the vocab terms. This utility extracts bias from a model. This could have been done  by examine_model.py too.
@@ -83,5 +83,5 @@ Phase1 CLS vector generation requires a code patch to transformer file modeling_
 * *single_aminoseq_compare.py* This is used to create representations for amino acid sequences.  Use phase1.sh with compare option skipped. Then use this to compare amnino acid sequences with [CLS] vector.  Example invocation *python single_aminoseq_compare.py -input ribosomal.txt -ref_input run1/ref_seqs.txt -ref_vecs run1/sent_vectors.txt -output final.txt -ngram 4*
 
 
-# License
+## License
 MIT License
