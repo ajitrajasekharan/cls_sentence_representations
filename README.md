@@ -6,7 +6,9 @@ Sentence representation using the [CLS] vector of a pre-trained model without fi
 
 ## (2) Vector clustering *(independent of how the vectors were created)*
 
-This repository also contains code for clustering vectors. Input to clustering is two files - vector file (text file) and corresponding descriptor file naming the vectors. Additional paramters are zscore and max tail pick to control how much to pick from distribution tails
+This repository also contains code for clustering vectors. Input to clustering is two files - vector file (text file) and corresponding descriptor file naming the vectors. Additional paramters are zscore and max tail pick to control how much to pick from distribution tails.
+
+Top k neighbor clustering for each vector is also an option.
 
 ## Installation
 
