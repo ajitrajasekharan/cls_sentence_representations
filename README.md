@@ -2,7 +2,7 @@
 
 ## (1) Sentence representation using [CLS] vectors 
 
-## (2) vector clustering *(independent of how the vectors were created)*
+## (2) Vector clustering *(independent of how the vectors were created)*
 
 Sentence representation using the [CLS] vector of a pre-trained model without fine-tuning. 
 
