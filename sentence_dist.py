@@ -11,6 +11,14 @@ import sys
 import random
 import argparse
 import time
+from sklearn.metrics.pairwise import euclidean_distances
+
+
+COSINE_DISTANCE = 0
+EUCLIDEAN_DISTANCE = 1
+
+
+ROUNDING_PRECISION=6
 
 
 SINGLETONS_TAG  = "_singletons_ "
@@ -31,6 +39,8 @@ DESC_CLUSTERS = "desc_clusters.txt"
 SUBSERVIENT_CLUSTERS = "subservient_clusters.txt"
 EMPTY_SENTENCES = "empty_sentences.txt"
 SINGLETON_SENTENCES = "singleton_sentences.txt"
+
+TOP_NEIGHS = "top_neighs.txt"
 
 try:
     from subprocess import DEVNULL  # Python 3.
@@ -67,7 +77,7 @@ def create_terms(total_len):
 
 
 class SentEmbeds:
-    def __init__(self, terms_file,embeds_file,zscore,max_pick):
+    def __init__(self, terms_file,embeds_file,zscore,max_pick,distance):
         cache_embeds = True
         normalize = True
         self.embeddings = read_embeddings(embeds_file)
@@ -80,8 +90,21 @@ class SentEmbeds:
         self.normalize = normalize
         self.zscore = zscore
         self.max_pick = max_pick
-        self.similarity_matrix = self.cache_matrix(True)
+        self.distance = distance
+        self.similarity_matrix = self.cache_matrix(True) if distance == COSINE_DISTANCE else  self.cache_euclidean()
+        print(f"Distance measure is {distance} 0 - cosine; 1 - euclidean")
 
+
+    def cache_euclidean(self):
+        b_embeds = self
+        print("Computing similarity matrix (takes approx 5 minutes for ~100,000x100,000 matrix ...")
+        start = time.time()
+        vec_a = b_embeds.embeddings #shape (1024,)
+        similarity_matrix = euclidean_distances(vec_a, vec_a)
+        end = time.time()
+        time_val = (end-start)*1000
+        print("Similarity matrix computation complete.Elapsed:",time_val/(1000*60)," minutes")
+        return similarity_matrix
 
     def cache_matrix(self,normalize):
         b_embeds = self
@@ -116,122 +139,22 @@ class SentEmbeds:
     def top_neighs(self):
         count = 0
         total = len(self.terms_dict)
-        pivots_dict = OrderedDict()
-        singletons_arr = []
-        fall_through_zscore = .5
-        empty_arr = []
-        total = len(self.terms_dict)
-        dfp = open(OUTPUT_SENT_CLUSTER_PIVOTS,"w")
-        descfp = open(DESC_CLUSTERS,"w")
-        emptyfp = open(EMPTY_SENTENCES,"w")
-        singletonfp = open(SINGLETON_SENTENCES,"w")
-        max_pick_count = len(self.terms_dict)*self.max_pick
+        #neighfp = open(TOP_NEIGHS,"w")
+
         for key in self.terms_dict:
             count += 1
             #print(":",key)
             print("Processing ",count," of ",total)
-            temp_sorted_d,dummy = self.get_distribution_for_term(key)
-            z_threshold = self.find_zscore(temp_sorted_d,self.zscore) # this is not a normal distribution (it is a skewed normal distribution) - yet using asssuming it is for a reasonable thresholding
-                                                                 # the variance largely captures the right side tail which is no less than the left side tail for BERT models. 
-                                                                 # This assumption could be inaccurate for other cases.
-                                                                 # We could choose z scores conservatively based on the kind of clusters we want.
-            #if (z_threshold > 1):
-            #    z_threshold = fall_through_zscore
-            #    print("Zscore > 1. Resetting it to:",round(fall_through_zscore,2))
-                 
-            tail_len,threshold = self.get_tail_length(key,temp_sorted_d,z_threshold,max_pick_count)
+            threshold = -1
             sorted_d = self.get_terms_above_threshold(key,threshold)
-            arr = []
-            for k in sorted_d:
-                arr.append(k)
-            if (len(arr) > 1):
-                max_mean_term,max_mean, std_dev,s_dict = self.find_pivot_subgraph(arr)
-                if (max_mean_term not in pivots_dict):
-                    new_key  = max_mean_term
-                else:
-                    print("****Term already a pivot node:",max_mean_term, "key  is :",key)
-                    new_key  = max_mean_term + "++" + key
-                pivots_dict[new_key] = {"key":new_key,"orig":key,"mean":max_mean,"std_dev":std_dev,"size":len(arr),"terms":arr,"subservient":0}
-                print(new_key,max_mean,std_dev,arr)
-                for k in sorted_d:
-                    if (k in pivots_dict and k != max_mean_term and k != key):
-                        #pdb.set_trace()
-                        print("Marking a pivot list subservient, because it is a child of another pivot \"key\"")
-                        pivots_dict[k]["subservient"] = 1
-                        iter_dict = dict(pivots_dict) #clone for iter, not sure why I did this! Earlier I planned to delete
-                        for j in iter_dict:
-                            elements = j.split("++")[0]
-                            if (elements == k):
-                                print("Also marking  another cluster this pivot was a head of as subservient")
-                                pivots_dict[j]["subservient"] = 1
-                print("Non singleton cluster:",key,"new_key:",key)
-                dfp.write(new_key + " " + new_key + " " + new_key+" "+key+" "+str(max_mean)+" "+ str(std_dev) + " " + str(len(arr)) +  " " +str(arr)+"\n")
-                self.output_desc(descfp, new_key,key,str(max_mean),str(std_dev),arr)
-            else:
-                if (len(arr) == 1):
-                    print("***Singleton arr for term:",key)
-                    singletons_arr.append(key)
-                    singletonfp.write(self.desc_dict[int(key)] +"\n")
-                else:
-                    print("***Empty arr for term:",key)
-                    #pdb.set_trace()
-                    #assert(0)
-                    #if (fall_through_zscore > .2):
-                    #    fall_through_zscore -= .1
-                    empty_arr.append(key)
-                    emptyfp.write(self.desc_dict[int(key)] +"\n")
-
-        dfp.write(SINGLETONS_TAG + " " + str(len(singletons_arr)) + " " +   str(singletons_arr) + "\n")
-        pivots_dict[SINGLETONS_TAG] = {"key":SINGLETONS_TAG,"orig":SINGLETONS_TAG,"mean":0,"std_dev":0,"size":len(singletons_arr),"terms":singletons_arr,"subservient":0}
-        dfp.write(EMPTY_TAG + " " + str(len(empty_arr)) + " "   + str(empty_arr) + "\n")
-        pivots_dict[EMPTY_TAG] = {"key":EMPTY_TAG,"orig":EMPTY_TAG,"mean":0,"std_dev":0,"size":len(empty_arr),"terms":empty_arr,"subservient": 0}
-        with open(OUTPUT_PIVOTS,"w") as fp:
-            fp.write(json.dumps(pivots_dict))
-        dfp.close()
-        inv_pivots_dict = OrderedDict()
-        count = 1
-        cluster_sizes = 0
-        for key in pivots_dict:
-            arr = pivots_dict[key]["terms"]
-            arr_size = len(arr)
-            for term in arr:
-                if (int(term) not in inv_pivots_dict):
-                    inv_pivots_dict[int(term)] = []
-                else:
-                    print("Already present:",term)
-                inv_pivots_dict[int(term)].append({"index":count,"size":arr_size})
-            count += 1
-            if (key != SINGLETONS_TAG and key not in EMPTY_TAG):
-                cluster_sizes += arr_size
-        avg_cluster_size = cluster_sizes/float(count - 2) #not counting singleton and empty
-        sorted_d = OrderedDict(sorted(inv_pivots_dict.items(), key=lambda kv: kv[0], reverse=False))
-        with open(OUTPUT_INVERTED_PIVOTS,"w") as fp:
-            fp.write(json.dumps(sorted_d))
-        dfp.close()
-        cluster_stats_dict = {}
-        for key in inv_pivots_dict:
-            arr_size = len(inv_pivots_dict[key])
-            if (arr_size not in cluster_stats_dict):
-                cluster_stats_dict[arr_size] = 1
-            else:
-                cluster_stats_dict[arr_size] += 1
-        sorted_d = OrderedDict(sorted(cluster_stats_dict.items(), key=lambda kv: kv[0], reverse=False))
-        final_dict = {"avg_cluster_size":round(avg_cluster_size,0),"element_inclusion_hist":sorted_d,"singleton_counts":len(pivots_dict[SINGLETONS_TAG]["terms"]),"empty_counts":len(empty_arr),"total_clusters":len(pivots_dict)-2,"total_input":total,"zcore":self.zscore,"max_pick":self.max_pick} #not counting empty and singletons  in pivots list
-        with open(OUTPUT_CLUSTER_STATS,"w") as fp:
-            fp.write(json.dumps(final_dict) + "\n")
-        with open(SUBSERVIENT_CLUSTERS,"w") as fp:
-            for k in pivots_dict:
-                if (pivots_dict[k]["subservient"] == 1):
-                    element = k.split("++")[0]
-                    fp.write(str(k) + " " + self.desc_dict[int(element)] + "\n")
-
-        dfp.close()
-        descfp.close()
-        emptyfp.close()
-        singletonfp.close()
-
-        print("Created output files\n1) {0}:Sentence clusters\n2) {1}: Pivots of clusters\n3) {2}: Inverted pivots\n4) {3} cluster stats\n5) {4} descriptive clusters".format( OUTPUT_SENT_CLUSTER_PIVOTS, OUTPUT_PIVOTS, OUTPUT_INVERTED_PIVOTS, OUTPUT_CLUSTER_STATS,DESC_CLUSTERS))
-
+            neighfp = open("neighs/" + key +".txt","w")
+            for key in sorted_d:
+                ret_str = f"{self.desc_dict[int(key)]} , {sorted_d[key]:.6f}"
+                print(ret_str)
+                neighfp.write(ret_str + "\n")
+            neighfp.close()
+            #neighfp.write("\n\n")
+        neighfp.close()
 
 
     def adaptive_gen_pivot_graphs(self):
@@ -470,8 +393,7 @@ class SentEmbeds:
 
 
 
-
-    def calc_inner_prod(self,text1,text2):
+    def calc_distance(self,text1,text2):
         index1 = int(text1) - 1
         index2 = int(text2) -1
         return self.similarity_matrix[index1][index2]
@@ -485,7 +407,7 @@ class SentEmbeds:
         zero_dict = {}
         for k in self.terms_dict:
             term2 = k.strip("\n")
-            val = self.calc_inner_prod(term1,term2)
+            val = self.calc_distance(term1,term2)
 
             val = round(val,2)
             if (val > .3 and val != 1):
@@ -506,11 +428,12 @@ class SentEmbeds:
         final_dict = {}
         for k in self.terms_dict:
             term2 = k.strip("\n")
-            val = self.calc_inner_prod(term1,term2)
-            val = round(val,2)
+            val = self.calc_distance(term1,term2)
+            val = round(val,ROUNDING_PRECISION)
             if (val >= threshold):
                 final_dict[term2] = val
-        sorted_d = OrderedDict(sorted(final_dict.items(), key=lambda kv: kv[1], reverse=True))
+        sorted_order = True if self.distance == COSINE_DISTANCE else False
+        sorted_d = OrderedDict(sorted(final_dict.items(), key=lambda kv: kv[1], reverse=sorted_order))
         return sorted_d
 
 
@@ -530,7 +453,7 @@ class SentEmbeds:
             full_dict = {}
             for j in terms:
                 if (i != j):
-                    val = self.calc_inner_prod(i,j)
+                    val = self.calc_distance(i,j)
                     #print(i+"-"+j,val)
                     full_score += val
                     full_dict[count] = val
@@ -560,13 +483,15 @@ class SentEmbeds:
 
 def main():
     parser = argparse.ArgumentParser(description='Clusters vectors - given input vector file and a corresponding index file. Index file could be terms/words/descriptors of the input vectors.',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-vectors', action="store", dest="vectors", help='file containing vectors - one line per vector')
-    parser.add_argument('-terms', action="store", dest="terms", help='file with sentences/terms desciribng  the  vectors')
+    parser.add_argument('-vectors', action="store", dest="vectors",required=True, help='file containing vectors - one line per vector')
+    parser.add_argument('-terms', action="store", dest="terms",required=True, help='file with sentences/terms desciribng  the  vectors')
     parser.add_argument('-zscore', dest="zscore", action='store',type=float,default=DEFAULT_ZSCORE, help='Minimum standard deviations from mean to consider for clustering')
     parser.add_argument('-max_pick', dest="max_pick", action='store',type=float,default=DEFAULT_MAX_PICK_PERCENT, help='Bound the cluster size maximum')
+    parser.add_argument('-distance', action="store", dest="distance",default=EUCLIDEAN_DISTANCE,type=int, help='Distance measure')
+
     results = parser.parse_args()
     print(results)
-    b_embeds =SentEmbeds(results.terms,results.vectors,results.zscore,results.max_pick)
+    b_embeds =SentEmbeds(results.terms,results.vectors,results.zscore,results.max_pick,results.distance)
     while (True):
         print("Enter test type (0-gen cum dist for sentences; 1-generate clusters ; 2-pick top k neighs q to quit")
         val = input()
